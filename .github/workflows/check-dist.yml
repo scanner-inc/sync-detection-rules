@@ -1,0 +1,31 @@
+name: Check dist freshness
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-dist:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Rebuild dist
+        run: yarn build
+
+      - name: Verify dist matches committed bundle
+        run: |
+          if ! git diff --quiet -- dist/; then
+            echo "::error::dist/ is out of date with the source. Run \`yarn build\` and commit the result."
+            git --no-pager diff --stat -- dist/
+            exit 1
+          fi

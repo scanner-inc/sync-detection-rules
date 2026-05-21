@@ -1,0 +1,33 @@
+name: 'Sync Scanner.dev Detection Rules'
+description: 'Uses the scanner-cli tool to sync a repository of detection rule yamls to Scanner'
+inputs:
+  scanner_api_url:
+    description: 'The API URL of your Scanner instance'
+    required: true
+  scanner_api_key:
+    description: 'Scanner API key'
+    required: true
+  push_key:
+    description: 'The push key identifying the target push sync source on Scanner (Settings > Detection Rule Sync)'
+    required: true
+  path:
+    description: 'Path inside the checked-out repository to sync. Defaults to the current directory; scanner-cli resolves the enclosing git root and uploads the whole working tree.'
+    required: false
+    default: '.'
+runs:
+  using: 'composite'
+  steps:
+    - name: Install scanner-cli
+      shell: bash
+      run: pip install --quiet 'scanner-cli==0.1.0'
+    - name: Run sync
+      shell: bash
+      run: node ${{ github.action_path }}/dist/index.js
+      env:
+        INPUT_SCANNER_API_URL: ${{ inputs.scanner_api_url }}
+        INPUT_SCANNER_API_KEY: ${{ inputs.scanner_api_key }}
+        INPUT_PUSH_KEY: ${{ inputs.push_key }}
+        INPUT_PATH: ${{ inputs.path }}
+# TODO: add branding
+# (https://docs.github.com/en/actions/sharing-automations/creating-actions/metadata-syntax-for-github-actions#branding)
+# if we want to put on marketplace

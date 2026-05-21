@@ -1,0 +1,26 @@
+{
+  "name": "sync-detection-rules",
+  "version": "0.1.0",
+  "description": "GitHub Action that syncs a repository of scanner.dev detection rules to Scanner via scanner-cli sync-git-repo",
+  "scripts": {
+    "build": "ncc build index.ts -o dist",
+    "gen_schema": "bash scripts/gen_schema.sh"
+  },
+  "keywords": [
+    "github-action",
+    "yaml",
+    "scanner"
+  ],
+  "author": "",
+  "license": "Apache-2.0",
+  "packageManager": "yarn@4.14.1",
+  "dependencies": {
+    "@actions/core": "^1.10.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@vercel/ncc": "^0.38.1",
+    "json-schema-to-typescript": "^15.0.0",
+    "typescript": "^5.0.0"
+  }
+}
