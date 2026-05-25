@@ -1,10 +1,10 @@
 import * as core from '@actions/core';
 import { execFileSync } from 'child_process';
 
-import type { SyncGitRepoResult } from './gen/sync_git_repo_result';
+import type { SyncGitRepoResultSchema } from './gen/sync_git_repo_result';
 
 // Internal representation the rest of this file consumes. Decoupled from
-// the wire format (`SyncGitRepoResult`) so an upstream rename or removal
+// the wire format (`SyncGitRepoResultSchema`) so an upstream rename or removal
 // breaks `toSyncOutput` at compile time, rather than silently propagating
 // to the runtime code below.
 interface SyncFailure {
@@ -27,7 +27,7 @@ interface SyncOutput {
   warnings: SyncWarning[];
 }
 
-function toSyncOutput(wire: SyncGitRepoResult): SyncOutput {
+function toSyncOutput(wire: SyncGitRepoResultSchema): SyncOutput {
   return {
     branch: wire.branch,
     commitSha: wire.commit_sha,
@@ -43,6 +43,34 @@ function toSyncOutput(wire: SyncGitRepoResult): SyncOutput {
       messages: w.messages,
     })),
   };
+}
+
+// `catch` produces `unknown` — anything can be thrown in JS. These helpers
+// narrow that down to the bits we want without resorting to `(e as any)`.
+
+function errorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === 'string') return e;
+  return String(e);
+}
+
+// Strings pass through; Buffers get utf-8 decoded; everything else → undefined.
+// `execFileSync`'s thrown-error decorations come back as strings under
+// `encoding: 'utf8'` but as `Buffer` if encoding is unset, so we handle both.
+function asUtf8String(v: unknown): string | undefined {
+  if (typeof v === 'string') return v;
+  if (Buffer.isBuffer(v)) return v.toString('utf8');
+  return undefined;
+}
+
+// `execFileSync` throws an `Error` that *also* carries the failed child's
+// `stdout` / `stderr`. The fields aren't typed by `@types/node`, so we extract
+// each defensively rather than `as`-casting to an interface that would lie
+// about the runtime type.
+function asChildProcessError(e: unknown): { stdout?: string; stderr?: string } {
+  if (!(e instanceof Error)) return {};
+  const o = e as { stdout?: unknown; stderr?: unknown };
+  return { stdout: asUtf8String(o.stdout), stderr: asUtf8String(o.stderr) };
 }
 
 async function run(): Promise<void> {
@@ -71,20 +99,22 @@ async function run(): Promise<void> {
     let threw = false;
     try {
       stdout = execFileSync('scanner-cli', args, { encoding: 'utf8' });
-    } catch (error: any) {
+    } catch (e: unknown) {
       threw = true;
-      stdout = error.stdout ?? '';
+      const childErr = asChildProcessError(e);
+      stdout = childErr.stdout ?? '';
       if (!stdout) {
         // No JSON to parse — fall back to plain failure reporting.
-        if (error.stderr) core.info(error.stderr);
-        core.setFailed(error.stderr?.trim() || 'scanner-cli sync-git-repo failed');
+        const stderr = childErr.stderr ?? '';
+        if (stderr) core.info(stderr);
+        core.setFailed(stderr.trim() || 'scanner-cli sync-git-repo failed');
         return;
       }
     }
 
     let output: SyncOutput;
     try {
-      output = toSyncOutput(JSON.parse(stdout) as SyncGitRepoResult);
+      output = toSyncOutput(JSON.parse(stdout) as SyncGitRepoResultSchema);
     } catch {
       // Got stdout but it wasn't JSON. Echo what we have and fail loudly so
       // the user can diagnose.
@@ -120,8 +150,8 @@ async function run(): Promise<void> {
     core.info(
       `Synced ${output.rulesSynced} rule(s), deleted ${output.rulesDeleted} rule(s)`
     );
-  } catch (error: any) {
-    core.setFailed(`Action failed: ${error.message}`);
+  } catch (e: unknown) {
+    core.setFailed(`Action failed: ${errorMessage(e)}`);
   }
 }
 

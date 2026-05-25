@@ -19,7 +19,7 @@ runs:
   steps:
     - name: Install scanner-cli
       shell: bash
-      run: pip install --quiet 'scanner-cli==0.1.0'
+      run: pip install 'scanner-cli~=0.1.0'
     - name: Run sync
       shell: bash
       run: node ${{ github.action_path }}/dist/index.js

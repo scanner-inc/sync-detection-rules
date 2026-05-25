@@ -50,7 +50,7 @@ To prepare a release:
 1. Install dependencies: `yarn install`
 2. Build the bundled distribution: `yarn build`
 3. Commit the `dist/` folder: `git add dist && git commit -m "Build dist"`
-4. Tag the release: `git tag v0.1.0 && git push --tags`
+4. Tag the release: `git tag v{$VERSION} && git push --tags`
 
 The bundled `dist/index.js` contains all dependencies, so users don't need to install anything.
 

@@ -25705,6 +25705,35 @@ function toSyncOutput(wire) {
         })),
     };
 }
+// `catch` produces `unknown` — anything can be thrown in JS. These helpers
+// narrow that down to the bits we want without resorting to `(e as any)`.
+function errorMessage(e) {
+    if (e instanceof Error)
+        return e.message;
+    if (typeof e === 'string')
+        return e;
+    return String(e);
+}
+// Strings pass through; Buffers get utf-8 decoded; everything else → undefined.
+// `execFileSync`'s thrown-error decorations come back as strings under
+// `encoding: 'utf8'` but as `Buffer` if encoding is unset, so we handle both.
+function asUtf8String(v) {
+    if (typeof v === 'string')
+        return v;
+    if (Buffer.isBuffer(v))
+        return v.toString('utf8');
+    return undefined;
+}
+// `execFileSync` throws an `Error` that *also* carries the failed child's
+// `stdout` / `stderr`. The fields aren't typed by `@types/node`, so we extract
+// each defensively rather than `as`-casting to an interface that would lie
+// about the runtime type.
+function asChildProcessError(e) {
+    if (!(e instanceof Error))
+        return {};
+    const o = e;
+    return { stdout: asUtf8String(o.stdout), stderr: asUtf8String(o.stderr) };
+}
 async function run() {
     var _a, _b;
     try {
@@ -25729,14 +25758,16 @@ async function run() {
         try {
             stdout = (0, child_process_1.execFileSync)('scanner-cli', args, { encoding: 'utf8' });
         }
-        catch (error) {
+        catch (e) {
             threw = true;
-            stdout = (_a = error.stdout) !== null && _a !== void 0 ? _a : '';
+            const childErr = asChildProcessError(e);
+            stdout = (_a = childErr.stdout) !== null && _a !== void 0 ? _a : '';
             if (!stdout) {
                 // No JSON to parse — fall back to plain failure reporting.
-                if (error.stderr)
-                    core.info(error.stderr);
-                core.setFailed(((_b = error.stderr) === null || _b === void 0 ? void 0 : _b.trim()) || 'scanner-cli sync-git-repo failed');
+                const stderr = (_b = childErr.stderr) !== null && _b !== void 0 ? _b : '';
+                if (stderr)
+                    core.info(stderr);
+                core.setFailed(stderr.trim() || 'scanner-cli sync-git-repo failed');
                 return;
             }
         }
@@ -25771,8 +25802,8 @@ async function run() {
         }
         core.info(`Synced ${output.rulesSynced} rule(s), deleted ${output.rulesDeleted} rule(s)`);
     }
-    catch (error) {
-        core.setFailed(`Action failed: ${error.message}`);
+    catch (e) {
+        core.setFailed(`Action failed: ${errorMessage(e)}`);
     }
 }
 run();

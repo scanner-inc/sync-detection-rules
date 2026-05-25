@@ -8,6 +8,7 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
+export type SyncGitRepoResultSchema = SyncGitRepoSuccess | SyncGitRepoFailed;
 /**
  * The `--push-key` value the CLI uploaded under.
  */
@@ -21,6 +22,10 @@ export type Branch = string;
  */
 export type CommitSha = string;
 /**
+ * Raw commit message of HEAD at upload time (subject + body, as `git log -1 --pretty=%B`). May be the empty string for commits made with `--allow-empty-message`.
+ */
+export type CommitMessage = string;
+/**
  * Number of rules created or updated by the upload.
  */
 export type DetectionRulesSynced = number;
@@ -29,25 +34,15 @@ export type DetectionRulesSynced = number;
  */
 export type DetectionRulesDeleted = number;
 /**
- * Repo-relative path of the failing detection-rule YAML.
+ * Always empty on a successful upload.
+ *
+ * @maxItems 0
  */
-export type FilePath = string;
-/**
- * Categorical reason this file failed.
- */
-export type SyncGitRepoFailureStatus = "ErrorInQuery" | "ErrorInRule" | "FailedTests";
-/**
- * Free-form detail (e.g. parse error message, failing test names). May be absent when `check_status` is self-explanatory.
- */
-export type Reason = string | null;
-/**
- * Per-file failures. Non-empty means the entire sync was aborted server-side and no rules were applied.
- */
-export type Failures = SyncGitRepoFailure[];
+export type Failures = [];
 /**
  * Repo-relative path of the rule the warning pertains to.
  */
-export type FilePath1 = string;
+export type FilePath = string;
 /**
  * UUID of the resulting Scanner detection rule, as a string.
  */
@@ -57,39 +52,98 @@ export type DetectionRuleId = string;
  */
 export type Messages = string[];
 /**
- * Non-fatal advisories from a successful sync.
+ * Non-fatal advisories from the sync.
  */
 export type Warnings = SyncGitRepoWarning[];
+/**
+ * The `--push-key` value the CLI uploaded under.
+ */
+export type PushKey1 = string;
+/**
+ * Git branch the upload was associated with.
+ */
+export type Branch1 = string;
+/**
+ * Commit SHA of HEAD at upload time. Carries a `+dirty` suffix iff the working tree had uncommitted or untracked changes.
+ */
+export type CommitSha1 = string;
+/**
+ * Raw commit message of HEAD at upload time (subject + body, as `git log -1 --pretty=%B`). May be the empty string for commits made with `--allow-empty-message`.
+ */
+export type CommitMessage1 = string;
+/**
+ * Always 0 — the upload was a whole-zip rejection. Pass the value the server returned through verbatim; Pydantic flags any deviation as a server-side invariant violation.
+ */
+export type DetectionRulesSynced1 = 0;
+/**
+ * Always 0 — the upload was a whole-zip rejection. Pass the value the server returned through verbatim; Pydantic flags any deviation as a server-side invariant violation.
+ */
+export type DetectionRulesDeleted1 = 0;
+/**
+ * Per-file failures; non-empty by definition for this variant.
+ *
+ * @minItems 1
+ */
+export type Failures1 = [SyncGitRepoFailure, ...SyncGitRepoFailure[]];
+/**
+ * Repo-relative path of the failing detection-rule YAML.
+ */
+export type FilePath1 = string;
+/**
+ * Categorical reason this file failed.
+ */
+export type SyncGitRepoFailureStatus = "ErrorInQuery" | "ErrorInRule" | "FailedTests";
+/**
+ * Free-form detail (e.g. parse error message, failing test names). May be absent when `check_status` is self-explanatory.
+ */
+export type Reason = string | null;
+/**
+ * Non-fatal advisories. Can co-exist with failures since warnings are emitted per-file.
+ */
+export type Warnings1 = SyncGitRepoWarning[];
 
 /**
- * Top-level shape of `sync-git-repo --json` output.
- *
- * `failures` non-empty implies the sync was rejected as a whole — i.e.
- * `detection_rules_synced` and `detection_rules_deleted` are both 0 — so
- * consumers can treat the failure list as the authoritative signal.
+ * The upload completed; every file in the zip synced. `failures`
+ * is empty by definition.
  */
-export interface SyncGitRepoResult {
+export interface SyncGitRepoSuccess {
   push_key: PushKey;
   branch: Branch;
   commit_sha: CommitSha;
+  commit_message: CommitMessage;
   detection_rules_synced: DetectionRulesSynced;
   detection_rules_deleted: DetectionRulesDeleted;
   failures?: Failures;
   warnings?: Warnings;
 }
 /**
- * A single rule file that prevented the sync.
- */
-export interface SyncGitRepoFailure {
-  file_path: FilePath;
-  check_status: SyncGitRepoFailureStatus;
-  reason?: Reason;
-}
-/**
  * A non-fatal advisory attached to one synced rule.
  */
 export interface SyncGitRepoWarning {
-  file_path: FilePath1;
+  file_path: FilePath;
   detection_rule_id: DetectionRuleId;
   messages: Messages;
+}
+/**
+ * The upload was rejected server-side because at least one file
+ * failed its check (parse / test). The whole upload is transactional
+ * — no rules were applied — so the counters are zero by definition.
+ */
+export interface SyncGitRepoFailed {
+  push_key: PushKey1;
+  branch: Branch1;
+  commit_sha: CommitSha1;
+  commit_message: CommitMessage1;
+  detection_rules_synced: DetectionRulesSynced1;
+  detection_rules_deleted: DetectionRulesDeleted1;
+  failures: Failures1;
+  warnings?: Warnings1;
+}
+/**
+ * A single rule file that prevented the sync.
+ */
+export interface SyncGitRepoFailure {
+  file_path: FilePath1;
+  check_status: SyncGitRepoFailureStatus;
+  reason?: Reason;
 }
